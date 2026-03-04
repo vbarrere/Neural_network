@@ -19,7 +19,6 @@ data["eta_parameter"] = 2 * np.abs(data["nat1_out"] / (data["nat1_out"] + data["
 
 mask = np.isnan(data["eta_parameter"])
 
-print(f"Nombre de données avec des valeurs manquantes pour eta_parameter: {mask.sum()}")
 train_data, test_data = train_test_split(data[~mask], test_size=0.2, random_state=42)
 train_data, val_data = train_test_split(train_data, test_size=0.2, random_state=42)
 
@@ -73,17 +72,12 @@ model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
 model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 model.fit(train_gen, epochs=10, validation_data=val_gen)
 
-print("Train gen g:", train_gen)
-print("Val gen :", val_gen)
-print("Test gen :", test_gen)
 
 predictions = model.predict(test_gen)
 predictions = predictions.flatten()
 
 y_true = test_gen.labels
 
-print("predictions shape:", predictions)
-print("y_true shape:", y_true)
 plt.scatter(y_true, predictions, alpha=0.5)
 plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], 'r--')
 plt.xlabel('True Values')
