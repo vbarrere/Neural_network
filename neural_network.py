@@ -73,7 +73,7 @@ model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
 model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 model.fit(train_gen, epochs=10, validation_data=val_gen)
 
-print("Train gen :", train_gen)
+print("Train gen g:", train_gen)
 print("Val gen :", val_gen)
 print("Test gen :", test_gen)
 
