@@ -36,3 +36,16 @@ def init_gen(train_data, val_data, test_data, img_path, x, y):
     
     return train_gen, val_gen, test_gen
     
+
+def convolution(model):
+    model.add(tf.keras.layers.Input(shape=(64, 64, 1)))
+    model.add(tf.keras.layers.Conv2D(32, (3, 3), activation='relu'))
+    model.add(tf.keras.layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+    model.add(tf.keras.layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(tf.keras.layers.Conv2D(64, (3, 3), activation='relu'))
+    model.add(tf.keras.layers.MaxPooling2D((2, 2)))
+    model.add(tf.keras.layers.Flatten())
+    model.add(tf.keras.layers.Dense(1024, activation='relu'))
+    model.add(tf.keras.layers.Dense(768, activation='relu'))
+    model.add(tf.keras.layers.Dense(1, activation='sigmoid'))

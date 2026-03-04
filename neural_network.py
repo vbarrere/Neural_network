@@ -9,7 +9,7 @@ import tensorflow as tf
 import PIL
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from utils import init_gen
+from utils import init_gen, convolution
 
 img_path = "/home/victor.barrere@crmd.cnrs-orleans.fr/Documents/Data/Data_HRTEM/HRTEM_image"
 data = pd.read_csv("/home/victor.barrere@crmd.cnrs-orleans.fr/Documents/Data/Data_processed/data.dat", sep="\t", engine="python", na_values=["nan"])
@@ -21,25 +21,12 @@ mask = np.isnan(data["eta_parameter"])
 train_data, test_data = train_test_split(data[~mask], test_size=0.2, random_state=42)
 train_data, val_data = train_test_split(train_data, test_size=0.2, random_state=42)
 
+
 train_gen, val_gen, test_gen = init_gen(train_data, val_data, test_data, img_path, "image_file", "eta_parameter")
-
 model = tf.keras.models.Sequential()
-model.add(tf.keras.layers.Input(shape=(64, 64, 1)))
-model.add(tf.keras.layers.Conv2D(32, (3, 3), activation='relu'))
-model.add(tf.keras.layers.Conv2D(64, (3, 3), activation='relu'))
-model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-model.add(tf.keras.layers.Conv2D(64, (3, 3), activation='relu'))
-model.add(tf.keras.layers.Conv2D(64, (3, 3), activation='relu'))
-model.add(tf.keras.layers.MaxPooling2D((2, 2)))
-model.add(tf.keras.layers.Flatten())
-model.add(tf.keras.layers.Dense(1024, activation='relu'))
-model.add(tf.keras.layers.Dense(768, activation='relu'))
-model.add(tf.keras.layers.Dense(1, activation='sigmoid'))
-
-
+convolution(model)
 model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 model.fit(train_gen, epochs=10, validation_data=val_gen)
-
 
 predictions = model.predict(test_gen)
 predictions = predictions.flatten()
