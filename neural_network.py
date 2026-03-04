@@ -9,6 +9,7 @@ import tensorflow as tf
 import PIL
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from utils import init_gen
 
 img_path = "/home/victor.barrere@crmd.cnrs-orleans.fr/Documents/Data/Data_HRTEM/HRTEM_image"
 data = pd.read_csv("/home/victor.barrere@crmd.cnrs-orleans.fr/Documents/Data/Data_processed/data.dat", sep="\t", engine="python", na_values=["nan"])
@@ -20,38 +21,7 @@ mask = np.isnan(data["eta_parameter"])
 train_data, test_data = train_test_split(data[~mask], test_size=0.2, random_state=42)
 train_data, val_data = train_test_split(train_data, test_size=0.2, random_state=42)
 
-datagen = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
-
-train_gen = datagen.flow_from_dataframe(
-    dataframe=train_data, 
-    directory=img_path, 
-    x_col="image_file", 
-    y_col="eta_parameter",
-    class_mode='raw',
-    target_size=(64, 64),
-    color_mode="grayscale"
-)
-
-val_gen = datagen.flow_from_dataframe (
-    dataframe=val_data, 
-    directory=img_path, 
-    x_col="image_file", 
-    y_col="eta_parameter",
-    class_mode='raw',
-    target_size=(64, 64),
-    color_mode="grayscale"
-)
-
-test_datagen = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
-test_gen = test_datagen.flow_from_dataframe (
-    dataframe=test_data, 
-    directory=img_path, 
-    x_col="image_file", 
-    y_col="eta_parameter",
-    class_mode='raw',
-    target_size=(64, 64),
-    color_mode="grayscale"
-)
+train_gen, val_gen, test_gen = init_gen(train_data, val_data, test_data, img_path, "image_file", "eta_parameter")
 
 model = tf.keras.models.Sequential()
 model.add(tf.keras.layers.Input(shape=(64, 64, 1)))
