@@ -15,7 +15,6 @@ data = pd.read_csv("/home/victor.barrere@crmd.cnrs-orleans.fr/Documents/Data/Dat
 
 data["image_file"] =  data["i_sim"] + '.png'
 data["eta_parameter"] = 2 * np.abs(data["nat1_out"] / (data["nat1_out"] + data["nat2_out"]) - data["nat1"] / data["n_atoms"]) + 2 * np.abs(data["nat1_in"] / (data["nat1_in"] + data["nat2_in"]) - data["nat1"] / data["n_atoms"]) - data["d_com"] / (2*data["gyration_radius"])
-
 mask = np.isnan(data["eta_parameter"])
 
 train_data, test_data = train_test_split(data[~mask], test_size=0.2, random_state=42)
@@ -81,5 +80,6 @@ plt.scatter(y_true, predictions, alpha=0.5)
 plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], 'r--')
 plt.xlabel('True Values')
 plt.ylabel('Predictions')
+plt.grid(alpha=.2)
 plt.title("True vs Predicted Values")
 plt.show()
