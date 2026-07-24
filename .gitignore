@@ -1,0 +1,6 @@
+/__pycache__
+/Figure
+/pandas_package
+*.png
+test.py
+nohup.out
