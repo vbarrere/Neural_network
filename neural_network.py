@@ -12,12 +12,12 @@ def network(training_data, validation_data, modele, epochs, patience):
     return history
 
 
-def convolutional_neural_network(dropout_rate=.3, l2_reg=1e-4):
+def convolutional_neural_network(n_px, dropout_rate=.3, l2_reg=1e-4):
     """
     Creates a convolutional neural network for image regression.
     """
     modele = tf.keras.models.Sequential()
-    modele.add(tf.keras.layers.Input(shape=(96, 96, 1)))
+    modele.add(tf.keras.layers.Input(shape=(n_px, n_px, 1)))
     modele.add(tf.keras.layers.Conv2D(32, kernel_size=3, padding='same', activation='relu', kernel_regularizer=regularizers.l2(l2_reg)))
     modele.add(tf.keras.layers.Conv2D(32, kernel_size=3, padding='same', activation='relu', kernel_regularizer=regularizers.l2(l2_reg)))
     modele.add(tf.keras.layers.MaxPooling2D(pool_size=2))
@@ -35,12 +35,12 @@ def convolutional_neural_network(dropout_rate=.3, l2_reg=1e-4):
     
     return modele
 
-def convolutional_neural_network2():
+def convolutional_neural_network2(n_px):
     """
     Creates a convolutional neural network for image regression.
     """
     modele = tf.keras.models.Sequential()
-    modele.add(tf.keras.layers.Input(shape=(96, 96, 1)))
+    modele.add(tf.keras.layers.Input(shape=(n_px, n_px, 1)))
     modele.add(tf.keras.layers.Conv2D(32, kernel_size=3, padding='same', activation='relu'))
     modele.add(tf.keras.layers.Conv2D(32, kernel_size=3, padding='same', activation='relu'))
     modele.add(tf.keras.layers.MaxPooling2D(pool_size=2))

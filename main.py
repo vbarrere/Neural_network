@@ -14,7 +14,8 @@ save_data_path = os.getenv("save_data_path")
 n_epochs = int(os.getenv("epochs"))
 patience = int(os.getenv("patience"))
 n_samples = int(os.getenv("n_samples"))
-param = ["n_atoms", "composition"]
+n_px = int(os.getenv("n_px"))
+param = ["nat1", "n_atoms"]
 
 df = load_nanoalloys_data(hrtem_path, size_sample=n_samples)
 prediction_file = save_data_path + f"{n_epochs}_epochs_{n_samples}/predictions.pkl"
@@ -30,8 +31,8 @@ for var in param:
     if var not in data:
         data[var] = {}
         train_set, val_set, test_set = split_data(df, data, var, train_size=0.6, val_size=0.3, test_size=0.1, random_state=42)
-        train_gen, val_gen, test_gen = create_generator(train_set, val_set, test_set, hrtem_path + "images_png/", var)
-        modele = convolutional_neural_network2()
+        train_gen, val_gen, test_gen = create_generator(train_set, val_set, test_set, hrtem_path + "images_png/", var, n_px)
+        modele = convolutional_neural_network(n_px)
         history = network(train_gen, val_gen, modele, n_epochs, patience=patience)
 
         data[var]['y_true'] = test_set[var].values * (data[var]['y_max'] - data[var]['y_min']) + data[var]['y_min']

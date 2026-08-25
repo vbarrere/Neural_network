@@ -26,12 +26,12 @@ def image_line_to_png(image_file, out_dir, index, nx=96):
 def load_nanoalloys_data(path, size_sample=-1):
     try:
         df_tmp = {}
-        n_dataset = 3
+        n_dataset = 4
         for i in range(n_dataset):
             df_tmp[i] = pd.read_csv(path + f"Dataset{i+1}/data.dat", sep=r'\s+', na_values=["nan"], header=0)
             df_tmp[i].columns = ['id_sim', 'n_atoms', 'n_steps', 'initial_temperature', 'epot_total', 'composition', 'gyration_radius', 'nat1', 'nat2', 'nat1_out', 'nat2_out', 'nat1_in', 'nat2_in', 'd_com', 'coreshell_index']
             df_tmp[i]['id_sim'] += f"_{i+1}"
-        df = pd.concat([df_tmp[0], df_tmp[1], df_tmp[2]], ignore_index=True)
+        df = pd.concat([df_tmp[0], df_tmp[1], df_tmp[2], df_tmp[3]], ignore_index=True)
         df.columns = ['id_sim', 'n_atoms', 'n_steps', 'initial_temperature', 'epot_total', 'composition', 'gyration_radius', 'nat1', 'nat2', 'nat1_out', 'nat2_out', 'nat1_in', 'nat2_in', 'd_com', 'coreshell_index']
         df["image_file"] = df["id_sim"] + ".png"
         df["coreshell_index"] = 2 * np.abs(df["nat1_out"] / (df["nat1_out"] + df["nat2_out"]) - df["nat1"] / df["n_atoms"]) + 2 * np.abs(df["nat1_in"] / (df["nat1_in"] + df["nat2_in"]) - df["nat1"] / df["n_atoms"]) - df["d_com"] / (2*df["gyration_radius"])
@@ -67,7 +67,7 @@ def split_data(df, data, var, train_size=0.6, val_size=0.3, test_size=0.1, rando
 
 
 
-def create_generator(training_set, validation_set, test_set, path, output):
+def create_generator(training_set, validation_set, test_set, path, output, n_px):
     
     datagen_training = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255, horizontal_flip=True, vertical_flip=True)
     datagen = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
@@ -76,7 +76,7 @@ def create_generator(training_set, validation_set, test_set, path, output):
         directory=path,
         x_col="image_file",
         y_col=[output],
-        target_size=(96,96),
+        target_size=(n_px, n_px),
         batch_size=256,
         class_mode='raw',
         color_mode="grayscale"
@@ -86,7 +86,7 @@ def create_generator(training_set, validation_set, test_set, path, output):
         directory=path,
         x_col="image_file",
         y_col=[output],
-        target_size=(96,96),
+        target_size=(n_px, n_px),
         batch_size=256,
         class_mode='raw',
         color_mode="grayscale"
@@ -96,7 +96,7 @@ def create_generator(training_set, validation_set, test_set, path, output):
         directory=path,
         x_col="image_file",
         y_col=[output],
-        target_size=(96,96),
+        target_size=(n_px, n_px),
         batch_size=256,
         class_mode='raw',
         color_mode="grayscale",
