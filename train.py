@@ -17,10 +17,10 @@ from sklearn.model_selection import train_test_split
 ### PARAMETERS ###
 ##################
 
-TRAINING_SIZE = 0.6
-VALIDATION_SIZE = 0.3
+TRAINING_SIZE = 0.8
+VALIDATION_SIZE = 0.1
 TEST_SIZE = 0.1
-EPOCHS = 50
+EPOCHS = 30
 PATIENCE = 10
 N_PX = 256
 BATCH_SIZE = 128
@@ -54,6 +54,7 @@ class Batches(tf.keras.utils.PyDataset):
             np.random.shuffle(self.idx)
 
 
+@tf.keras.utils.register_keras_serializable(package="Neural_network")
 class RandomTranspose(tf.keras.layers.Layer):
     # Swaps x and y in half of the images, during training only; with RandomFlip this gives the 8 symmetries of the square
     def call(self, x, training=None):
@@ -61,6 +62,21 @@ class RandomTranspose(tf.keras.layers.Layer):
             return x
         swap = tf.random.uniform([tf.shape(x)[0], 1, 1, 1]) < 0.5
         return tf.where(swap, tf.transpose(x, [0, 2, 1, 3]), x)
+
+
+@tf.keras.utils.register_keras_serializable(package="Neural_network")
+class Denormalize(tf.keras.layers.Layer):
+    # Min-max normalised outputs back to physical units; the parameters flagged in cube were fitted as their cube root
+    def __init__(self, y_min, y_max, cube, **kwargs):
+        super().__init__(**kwargs)
+        self.y_min, self.y_max, self.cube = [float(v) for v in y_min], [float(v) for v in y_max], [bool(c) for c in cube]
+
+    def call(self, y):
+        y = y * (tf.constant(self.y_max) - tf.constant(self.y_min)) + tf.constant(self.y_min)
+        return tf.where(tf.constant(self.cube), y ** 3, y)
+
+    def get_config(self):
+        return {**super().get_config(), "y_min": self.y_min, "y_max": self.y_max, "cube": self.cube}
 
 
 def conv_bn_relu(filters):
@@ -74,7 +90,9 @@ def main():
     
     data_hrtem = np.load("all_data.npy", mmap_mode="r")
     meta = np.load("meta.npy")
-    
+    if len(meta) != len(data_hrtem):
+        sys.exit(f"Error: meta.npy ({len(meta)} records) and all_data.npy ({len(data_hrtem)}) do not match; run load_data.py again")
+
     for param in PARAMETERS:
         if param not in meta.dtype.names:
             sys.exit(f"Error: Parameter '{param}' not found in the dataset.\nAvailable parameters are: {meta.dtype.names}")
@@ -110,27 +128,42 @@ def main():
                tf.keras.layers.Dense(256, activation='relu'),
                tf.keras.layers.Dense(len(PARAMETERS), activation='linear', dtype="float32")]
     model = tf.keras.Sequential(layers)
+    # A job stopped before the end (time limit) leaves backup/: submitting it again resumes after the last completed epoch
+    resume = os.path.isdir("backup")
+    best_val_loss, initial_epoch = None, 0
+    if resume and os.path.exists("history.csv"):
+        previous = np.atleast_1d(np.genfromtxt("history.csv", delimiter=",", names=True))
+        best_val_loss, initial_epoch = float(np.min(previous["val_loss"])), len(previous) # Keras 3.0 does not restore the epoch counter itself
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=PATIENCE, min_delta=1e-4, restore_best_weights=True),
-        tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=PATIENCE//3, min_delta=1e-6)
+        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=PATIENCE, min_delta=1e-4),
+        tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=PATIENCE//3, min_delta=1e-6),
+        tf.keras.callbacks.ModelCheckpoint("checkpoint.keras", monitor='val_loss', save_best_only=True, initial_value_threshold=best_val_loss), # best epoch over all jobs (normalised outputs)
+        tf.keras.callbacks.CSVLogger("history.csv", append=resume), # losses of every epoch, over all jobs
+        tf.keras.callbacks.BackupAndRestore("backup") # last, so that a backup marks a fully completed epoch; deleted when training ends
     ]
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, clipnorm=1.0)
 
     model.compile(optimizer=optimizer, loss='mse')
-    history = model.fit(training_gen, validation_data=validation_gen, epochs=EPOCHS, callbacks=callbacks, verbose=1)
-    predictions = model.predict(test_gen, verbose=0)
-    
-    data = {}    
+    model.optimizer.build(model.trainable_variables) # built before BackupAndRestore reloads the backup, so the optimizer state is reloaded too (Keras 3.0 builds it later)
+    model.fit(training_gen, validation_data=validation_gen, epochs=EPOCHS, initial_epoch=initial_epoch, callbacks=callbacks, verbose=2)
+    model.load_weights("checkpoint.keras") # best epoch over all jobs (EarlyStopping only sees the epochs of this job)
+    history = np.atleast_1d(np.genfromtxt("history.csv", delimiter=",", names=True))
+    # Weights of the best epoch. Input: uint8 images (n, N_PX, N_PX, 1); output: PARAMETERS in physical units.
+    # To load it elsewhere: import train (registers the custom layers), then tf.keras.models.load_model("model.keras")
+    predictor = tf.keras.Model(model.inputs, Denormalize(y_min, y_max, [p == "n_atoms" for p in PARAMETERS], dtype="float32")(model.outputs[0]))
+    predictor.save("model.keras")
+    predictions = predictor.predict(test_gen, verbose=0)
+
+    data = {}
     for i, param in enumerate(PARAMETERS):
-        y_pred = predictions[:, i] * (y_max[i] - y_min[i]) + y_min[i]
         data[param] = {
             "y_true" : y[test_idx, i],
-            "y_pred" : y_pred ** 3 if param == "n_atoms" else y_pred
+            "y_pred" : predictions[:, i]
         }
     
     data["performance"] = {
-        "loss": history.history['loss'],
-        "val_loss": history.history['val_loss'],
+        "loss": history['loss'],
+        "val_loss": history['val_loss'],
         "train_mse": model.evaluate(train_eval_gen, verbose=0),
         "val_mse": model.evaluate(validation_gen, verbose=0),
         "test_mse": model.evaluate(test_gen, verbose=0)
@@ -146,5 +179,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
-# ~30 minutes / epoch
