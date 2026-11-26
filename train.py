@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -25,7 +25,10 @@ PATIENCE = 10
 N_PX = 256
 BATCH_SIZE = 128
 PARAMETERS = ["n_atoms", "composition", "coreshell_index"]
-SAVE_PATH = "/home/victor/Data/Predictions_data/avec_substrat/"
+#FIELDS = ["id_sim"] + PARAMETERS
+#CHUNK = 100000
+
+#SAVE_PATH = "/home/victor/Data/Predictions_data/avec_substrat/"
 
 tf.keras.mixed_precision.set_global_policy("mixed_float16") # float16 on the V100 tensor cores, weights kept in float32
 
@@ -145,7 +148,7 @@ def main():
 
     model.compile(optimizer=optimizer, loss='mse')
     model.optimizer.build(model.trainable_variables) # built before BackupAndRestore reloads the backup, so the optimizer state is reloaded too (Keras 3.0 builds it later)
-    model.fit(training_gen, validation_data=validation_gen, epochs=EPOCHS, initial_epoch=initial_epoch, callbacks=callbacks, verbose=2)
+    model.fit(training_gen, validation_data=validation_gen, epochs=EPOCHS, initial_epoch=initial_epoch, callbacks=callbacks, verbose=1)
     model.load_weights("checkpoint.keras") # best epoch over all jobs (EarlyStopping only sees the epochs of this job)
     history = np.atleast_1d(np.genfromtxt("history.csv", delimiter=",", names=True))
     # Weights of the best epoch. Input: uint8 images (n, N_PX, N_PX, 1); output: PARAMETERS in physical units.
@@ -153,26 +156,19 @@ def main():
     predictor = tf.keras.Model(model.inputs, Denormalize(y_min, y_max, [p == "n_atoms" for p in PARAMETERS], dtype="float32")(model.outputs[0]))
     predictor.save("model.keras")
     predictions = predictor.predict(test_gen, verbose=0)
-
-    data = {}
-    for i, param in enumerate(PARAMETERS):
-        data[param] = {
-            "y_true" : y[test_idx, i],
-            "y_pred" : predictions[:, i]
-        }
-    
-    data["performance"] = {
-        "loss": history['loss'],
-        "val_loss": history['val_loss'],
-        "train_mse": model.evaluate(train_eval_gen, verbose=0),
-        "val_mse": model.evaluate(validation_gen, verbose=0),
-        "test_mse": model.evaluate(test_gen, verbose=0)
-    }
-    
-    with open(os.path.join("predictions.pkl"), "wb") as f:
-        pickle.dump(data, f)
-    
-    
+    with open("predictions.pkl", "wb") as f:
+        pickle.dump(predictions, f) # Save the predictions on the test set to avoid wasting time recalculating during each subsequent analysis (~30 min on CPU)
+        
+    with open("mse.pkl", "wb") as f:
+        # As for the predictions, we save the MSE values to avoid recalculating them during each subsequent analysis (~2h for the training_set on CPU)
+        pickle.dump({   
+            "train_mse": model.evaluate(training_gen, verbose=0),
+            "train_eval_mse": model.evaluate(train_eval_gen, verbose=0),
+            "val_mse": model.evaluate(validation_gen, verbose=0),
+            "test_mse": model.evaluate(test_gen, verbose=0)
+            }, f
+        )
+        
     print(f"Total time: {time.time() - start_time:.2f} seconds")
 
 

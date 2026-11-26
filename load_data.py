@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import sys
 import time
@@ -12,8 +12,7 @@ from numpy.lib import recfunctions as rfn
 ##################
 
 N_SAMPLES = -1 # SET TO -1 TO USE ALL SAMPLES
-N_PX = 256
-PATH = f"/home/victor/Data/HRTEM_data/AgCo/avec_substrat/{N_PX}px/"
+PATH = f"/home/victor/Data/HRTEM_data/AgCo/"
 
 
 ###############
@@ -26,14 +25,24 @@ data1 = np.load(PATH + "dataset1.npy", mmap_mode="r")
 data2 = np.load(PATH + "dataset2.npy", mmap_mode="r")
 data3 = np.load(PATH + "dataset3.npy", mmap_mode="r")
 data4 = np.load(PATH + "dataset4.npy", mmap_mode="r")
-data = np.concatenate((data1, data2, data3, data4), axis=0)
+datasets = [data1, data2, data3, data4]
+data = np.concatenate(datasets, axis=0)
+dataset_number = np.concatenate([np.full(len(d), k, dtype=np.int64) for k, d in enumerate(datasets, start=1)])
+
+id_sim = data["id_sim"].astype(np.int64)
+n_digits = np.floor(np.log10(np.maximum(id_sim, 1))).astype(np.int64) + 1
+new_id_sim = dataset_number * 10**n_digits + id_sim
+#if np.max(new_id_sim) > np.iinfo(data["id_sim"].dtype).max:
+#    sys.exit("id_sim déborde de son type")
+data["id_sim"] = new_id_sim
+
+
 random_state = np.random.RandomState(seed=42)
 random_state.shuffle(data)
 if N_SAMPLES >= 0 and N_SAMPLES < len(data):
     data = data[:N_SAMPLES]
-elif N_SAMPLES >= len(data):
+elif N_SAMPLES > len(data):
     sys.exit(f"N_SAMPLES ({N_SAMPLES}) is greater than the number of samples in the dataset ({len(data)})")
 np.save("all_data.npy", data)
 np.save("meta.npy", rfn.repack_fields(data[[name for name in data.dtype.names if name != "image"]])) # descriptors only, same order: train.py reads them without touching the images
-
 print("Time to load data: ", time.time() - start_time)

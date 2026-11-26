@@ -29,6 +29,8 @@ PATIENCE = 10
 N_PX = 256
 BATCH_SIZE = 32 # STEM_DOWNSAMPLING = 2 needs about 4x the memory per image of the original ResNet50, for which 128 fits
 PARAMETERS = ["n_atoms", "composition", "coreshell_index"]
+#FIELDS = ["id_sim"] + PARAMETERS
+#CHUNK = 100000
 # True: start from the ImageNet weights. Compute nodes have no internet: download them once on a login node with
 # python3 -c "import tensorflow as tf; tf.keras.applications.ResNet50(include_top=False, weights='imagenet')"
 PRETRAINED = False
@@ -169,25 +171,15 @@ def main():
     predictor = tf.keras.Model(model.inputs, Denormalize(y_min, y_max, [p == "n_atoms" for p in PARAMETERS], dtype="float32")(model.outputs[0]))
     predictor.save(output("model.keras"))
     predictions = predictor.predict(test_gen, verbose=0)
-
-    data = {}
-    for i, param in enumerate(PARAMETERS):
-        data[param] = {
-            "y_true" : y[test_idx, i],
-            "y_pred" : predictions[:, i]
-        }
-
-    data["performance"] = {
-        "loss": history['loss'],
-        "val_loss": history['val_loss'],
-        "train_mse": model.evaluate(train_eval_gen, verbose=0),
-        "val_mse": model.evaluate(validation_gen, verbose=0),
-        "test_mse": model.evaluate(test_gen, verbose=0)
-    }
-
-    with open(output("predictions.pkl"), "wb") as f:
-        pickle.dump(data, f)
-
+    with open("predictions.pkl", "wb") as f:
+        pickle.dump(predictions, f)
+    with open("mse.pkl", "wb") as f:
+        pickle.dump({
+            "train_mse": model.evaluate(training_gen, verbose=0),
+            "train_eval_mse": model.evaluate(train_eval_gen, verbose=0),
+            "val_mse": model.evaluate(validation_gen, verbose=0),
+            "test_mse": model.evaluate(test_gen, verbose=0)
+        }, f)
 
     print(f"Total time: {time.time() - start_time:.2f} seconds")
 
