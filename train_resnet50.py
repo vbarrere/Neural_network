@@ -24,13 +24,11 @@ from muon import Muon
 TRAINING_SIZE = 0.8
 VALIDATION_SIZE = 0.1
 TEST_SIZE = 0.1
-EPOCHS = 30
+EPOCHS = 60
 PATIENCE = 10
 N_PX = 256
 BATCH_SIZE = 32 # STEM_DOWNSAMPLING = 2 needs about 4x the memory per image of the original ResNet50, for which 128 fits
 PARAMETERS = ["n_atoms", "composition", "coreshell_index"]
-#FIELDS = ["id_sim"] + PARAMETERS
-#CHUNK = 100000
 # True: start from the ImageNet weights. Compute nodes have no internet: download them once on a login node with
 # python3 -c "import tensorflow as tf; tf.keras.applications.ResNet50(include_top=False, weights='imagenet')"
 PRETRAINED = False
